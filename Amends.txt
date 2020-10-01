@@ -1,0 +1,204 @@
+
+Add field in 
+
+dInsertInspection and dJoblog
+
+ClientUpdate	nvarchar(400)	Checked
+
+__________________________________________________________________________
+
+Replace SP
+
+ALTER PROCEDURE [dbo].[dInsertInspection] 
+
+	(@RefNo	nvarchar(50),
+	@ContractRef	nvarchar(100),
+	@ComplaintRef	nvarchar(100),
+@ClientRefNo	nvarchar(100),
+@ClientName	nvarchar(250),
+@ProductGroup	nvarchar(200),
+@UnitDescription	nvarchar(200),
+@InspectionDetails	nvarchar(4000),
+@InspectionScope	nvarchar(50),
+@Username	nvarchar(150),
+@AutoID	bigint,
+@TransDate  datetime,
+@InitialActionTaken nvarchar(4000),
+@AttentionLevel nvarchar(100),
+@InspectionTeam nvarchar(2000),
+@ClientUpdate nvarchar(400))
+
+AS
+
+INSERT INTO [dInspection]
+           ([RefNo]
+		   ,ContractRef
+		   ,ComplaintRef
+           ,[ClientRefNo]
+           ,[ClientName]
+           ,[ProductGroup]
+           ,[UnitDescription]
+           ,[InspectionDetails]
+           ,[InspectionScope]
+           ,[Username]
+           ,[AutoID],[TransDate],InitialActionTaken,AttentionLevel,InspectionTeam,ClientUpdate)
+   
+   VALUES 
+   	(@RefNo,
+	@ContractRef,
+	@ComplaintRef,
+	@ClientRefNo,
+	@ClientName,
+	@ProductGroup,
+	@UnitDescription,
+	@InspectionDetails,
+	@InspectionScope,
+	@Username,
+	@AutoID,@TransDate,@InitialActionTaken,@AttentionLevel,@InspectionTeam,@ClientUpdate)
+
+_______________________________________________________________________________
+
+REPLACE SP
+
+ALTER PROCEDURE [dbo].[dInsertJoblog] 
+
+	(@RefNo	nvarchar(50),
+	@ContractRef	nvarchar(100),
+	@WorkorderRefNo	nvarchar(100),
+@ClientRefNo	nvarchar(100),
+@ClientName	nvarchar(250),
+@ProductGroup	nvarchar(200),
+@UnitDescription	nvarchar(200),
+@JobDetails	nvarchar(4000),
+@JobScope	nvarchar(50),
+@Username	nvarchar(150),
+@AutoID	bigint,
+@TransDate  datetime,
+@CostOfJob money,
+@CostOfSupply money,
+@CompletionLevel int,
+@AttentionLevel nvarchar(100),
+@RepairBy nvarchar(2000),
+@DateCompleted [datetime],
+@ClientUpdate nvarchar(400))
+
+AS
+
+INSERT INTO [dJoblog]
+           ([RefNo]
+		   ,ContractRef
+		   ,WorkorderRefNo
+           ,[ClientRefNo]
+           ,[ClientName]
+           ,[ProductGroup]
+           ,[UnitDescription]
+           ,[JobDetails]
+           ,[JobScope]
+           ,[Username]
+           ,[AutoID],[TransDate],CostOfJob,CostOfSupply,CompletionLevel,AttentionLevel,RepairBy,DateCompleted,ClientUpdate)
+   
+   VALUES 
+   	(@RefNo,
+	@ContractRef,
+	@WorkorderRefNo,
+	@ClientRefNo,
+	@ClientName,
+	@ProductGroup,
+	@UnitDescription,
+	@JobDetails,
+	@JobScope,
+	@Username,
+	@AutoID,@TransDate,@CostOfJob,@CostOfSupply,@CompletionLevel,@AttentionLevel,@RepairBy,@DateCompleted,@ClientUpdate)
+
+__________________________________________________________________________________________________
+
+	New Table dComplaintDesc
+
+	ComplaintDesc	nvarchar(400)	Unchecked
+	Sn	int	Unchecked
+
+_______________________________________________________________________________
+
+Change Joblog to Activity Log in dUserModule
+_____________________________________________________________________________________
+
+Add field to dComplaint
+OwnedByID	nvarchar(100)	Checked
+OwnedByAccepted	bit	Checked
+
+default value=0
+______________________________________________________________________________________
+
+REPLACE SP
+
+ALTER PROCEDURE [dbo].[dInsertComplaint] 
+
+(@RefNo	nvarchar(50),
+	@ContractRef	nvarchar(100),
+@ClientRefNo	nvarchar(100),
+@ClientName	nvarchar(250),
+@ProductGroup	nvarchar(200),
+@UnitDescription	nvarchar(200),
+@Complaint	nvarchar(4000),
+@ComplaintScope	nvarchar(50),
+@Username	nvarchar(150),
+@AutoID	bigint,
+@TransDate  datetime,
+@AttentionLevel nvarchar(50))
+
+AS
+
+INSERT INTO [dComplaint]
+           ([RefNo]
+		   ,ContractRef
+           ,[ClientRefNo]
+           ,[ClientName]
+           ,[ProductGroup]
+           ,[UnitDescription]
+           ,[Complaint]
+           ,[ComplaintScope]
+           ,[Username]
+           ,[AutoID],
+		   [SeenBy],[OwnedBy],[TransDate],AttentionLevel,OwnedByAccepted,OwnedByID)
+   
+   VALUES 
+   	(@RefNo,
+	@ContractRef,
+	@ClientRefNo,
+	@ClientName,
+	@ProductGroup,
+	@UnitDescription,
+	@Complaint,
+	@ComplaintScope,
+	@Username,
+	@AutoID,'','',@TransDate,@AttentionLevel,0,'')
+
+
+___________________________________________________________________________________________
+
+REPLACE SP
+
+ALTER PROCEDURE [dbo].[dUpdateComplaint4Ownership] 
+
+(@RefNo	nvarchar(50),
+@OwnedBy	nvarchar(200),
+@OwnedByDetail	nvarchar(200),
+@OwnedByAccepted bit)
+
+AS
+if EXISTS(SELECT * FROM [dComplaint] WHERE [RefNo]=@RefNo AND (OwnedByAccepted=0 or OwnedByAccepted is null))
+BEGIN
+	if EXISTS(SELECT * FROM [dComplaint] WHERE [RefNo]=@RefNo AND SeenBy like '%'+ @OwnedBy + '%')
+			BEGIN
+				UPDATE [dComplaint] SET [OwnedBy] = @OwnedByDetail,OwnedByID=@OwnedBy, OwnedByAccepted=@OwnedByAccepted WHERE [RefNo]=@RefNo
+			END
+		ELSE
+			BEGIN
+				UPDATE [dComplaint] SET SeenBy=SeenBy + ',' +@OwnedByDetail, OwnedByID=@OwnedBy,[OwnedBy] = @OwnedByDetail,OwnedByAccepted=@OwnedByAccepted WHERE [RefNo]=@RefNo AND NOT (SeenBy='' OR SeenBy is null)
+				UPDATE [dComplaint] SET SeenBy=@OwnedByDetail,OwnedByID=@OwnedBy, [OwnedBy] = @OwnedByDetail,OwnedByAccepted=@OwnedByAccepted WHERE [RefNo]=@RefNo AND (SeenBy='' OR SeenBy is null)
+			END
+END
+
+
+
+_______________________________________________________________________________________________________
